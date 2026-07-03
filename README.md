@@ -1,6 +1,6 @@
-# Guess Who Said It
+# CDL Ice Breakers
 
-A live icebreaker game for small groups. The host creates a room, players join with a code, answer short prompts, then guess who wrote each anonymous answer.
+A live "Guess Who Said It" icebreaker game for small groups. The host creates a room, players join with a code, answer short prompts, then guess who wrote each anonymous answer.
 
 ## Local Development
 

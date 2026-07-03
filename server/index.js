@@ -606,5 +606,5 @@ setInterval(() => {
 }, 15 * 60 * 1000).unref();
 
 httpServer.listen(PORT, () => {
-  console.log(`Guess Who Said It server listening on ${PORT}`);
+  console.log(`CDL Ice Breakers server listening on ${PORT}`);
 });

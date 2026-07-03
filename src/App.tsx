@@ -275,8 +275,8 @@ function App() {
                 <Sparkles size={22} />
               </span>
               <div>
-                <p className="eyebrow">Icebreaker room</p>
-                <h1>Guess Who Said It</h1>
+                <p className="eyebrow">Guess Who Said It</p>
+                <h1>CDL Ice Breakers</h1>
               </div>
             </div>
 
