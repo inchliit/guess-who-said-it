@@ -30,6 +30,309 @@ const prompts = [
   "The app I open when I need a break"
 ];
 
+const logoQuestions = [
+  {
+    id: "google-colors",
+    brandName: "Google",
+    prompt: "Which Google wordmark has the correct color order?",
+    explanation: "Google's letters run blue, red, yellow, blue, green, red.",
+    correctOptionId: "google-real",
+    options: [
+      {
+        id: "google-real",
+        brand: "Google",
+        label: "Blue red yellow blue green red",
+        caption: "Option A color sequence",
+        logoKey: "google-real"
+      },
+      {
+        id: "google-swap",
+        brand: "Google",
+        label: "Green red yellow blue blue red",
+        caption: "Option B color sequence",
+        logoKey: "google-swap"
+      },
+      {
+        id: "google-muted",
+        brand: "Google",
+        label: "Muted single-color wordmark",
+        caption: "Single-tone version",
+        logoKey: "google-muted"
+      }
+    ]
+  },
+  {
+    id: "youtube-shape",
+    brandName: "YouTube",
+    prompt: "Which YouTube mark is closest to the correct shape?",
+    explanation: "YouTube uses a red rounded rectangle with a white play triangle.",
+    correctOptionId: "youtube-real",
+    options: [
+      {
+        id: "youtube-circle",
+        brand: "YouTube",
+        label: "Red circle play mark",
+        caption: "Circle play-button version",
+        logoKey: "youtube-circle"
+      },
+      {
+        id: "youtube-real",
+        brand: "YouTube",
+        label: "Red rounded play mark",
+        caption: "Rounded play-button version",
+        logoKey: "youtube-real"
+      },
+      {
+        id: "youtube-dark",
+        brand: "YouTube",
+        label: "Black rounded play mark",
+        caption: "Dark play-button version",
+        logoKey: "youtube-dark"
+      }
+    ]
+  },
+  {
+    id: "spotify-waves",
+    brandName: "Spotify",
+    prompt: "Which Spotify mark uses the correct color and wave direction?",
+    explanation: "Spotify's icon is a green circle with dark curved sound waves.",
+    correctOptionId: "spotify-real",
+    options: [
+      {
+        id: "spotify-real",
+        brand: "Spotify",
+        label: "Green circle with dark waves",
+        caption: "Circle icon with curved waves",
+        logoKey: "spotify-real"
+      },
+      {
+        id: "spotify-blue",
+        brand: "Spotify",
+        label: "Blue circle with white waves",
+        caption: "Blue circle wave version",
+        logoKey: "spotify-blue"
+      },
+      {
+        id: "spotify-square",
+        brand: "Spotify",
+        label: "Green square with waves",
+        caption: "Square wave version",
+        logoKey: "spotify-square"
+      }
+    ]
+  },
+  {
+    id: "target-bullseye",
+    brandName: "Target",
+    prompt: "Which Target logo has the correct bullseye?",
+    explanation: "Target's mark is a red bullseye with a red center dot and red outer ring.",
+    correctOptionId: "target-real",
+    options: [
+      {
+        id: "target-real",
+        brand: "Target",
+        label: "Red bullseye with red center",
+        caption: "Bullseye with center dot",
+        logoKey: "target-real"
+      },
+      {
+        id: "target-blue",
+        brand: "Target",
+        label: "Blue bullseye",
+        caption: "Blue bullseye version",
+        logoKey: "target-blue"
+      },
+      {
+        id: "target-inverted",
+        brand: "Target",
+        label: "Red disk with white center",
+        caption: "Filled disk variation",
+        logoKey: "target-inverted"
+      }
+    ]
+  },
+  {
+    id: "mcdonalds-arches",
+    brandName: "McDonald's",
+    prompt: "Which McDonald's mark has the correct arch color?",
+    explanation: "McDonald's is known for its golden yellow arches.",
+    correctOptionId: "mcdonalds-real",
+    options: [
+      {
+        id: "mcdonalds-red",
+        brand: "McDonald's",
+        label: "Red arches",
+        caption: "Red arch version",
+        logoKey: "mcdonalds-red"
+      },
+      {
+        id: "mcdonalds-real",
+        brand: "McDonald's",
+        label: "Golden arches",
+        caption: "Golden arch version",
+        logoKey: "mcdonalds-real"
+      },
+      {
+        id: "mcdonalds-blue",
+        brand: "McDonald's",
+        label: "Blue arches",
+        caption: "Blue arch version",
+        logoKey: "mcdonalds-blue"
+      }
+    ]
+  },
+  {
+    id: "microsoft-window",
+    brandName: "Microsoft",
+    prompt: "Which Microsoft window has the correct color set?",
+    explanation: "The Microsoft symbol uses four colored panes: red, green, blue, and yellow.",
+    correctOptionId: "microsoft-real",
+    options: [
+      {
+        id: "microsoft-real",
+        brand: "Microsoft",
+        label: "Red, green, blue, yellow panes",
+        caption: "Four-pane color tile",
+        logoKey: "microsoft-real"
+      },
+      {
+        id: "microsoft-purple",
+        brand: "Microsoft",
+        label: "Purple, green, blue, yellow panes",
+        caption: "Alternative color tile",
+        logoKey: "microsoft-purple"
+      },
+      {
+        id: "microsoft-mono",
+        brand: "Microsoft",
+        label: "Single-color window",
+        caption: "Single-color tile",
+        logoKey: "microsoft-mono"
+      }
+    ]
+  },
+  {
+    id: "instagram-gradient",
+    brandName: "Instagram",
+    prompt: "Which Instagram icon has the correct visual style?",
+    explanation: "Instagram's app icon is a rounded square camera with a warm gradient.",
+    correctOptionId: "instagram-real",
+    options: [
+      {
+        id: "instagram-real",
+        brand: "Instagram",
+        label: "Gradient rounded camera",
+        caption: "Rounded square camera",
+        logoKey: "instagram-real"
+      },
+      {
+        id: "instagram-blue",
+        brand: "Instagram",
+        label: "Blue camera outline",
+        caption: "Blue outline camera",
+        logoKey: "instagram-blue"
+      },
+      {
+        id: "instagram-circle",
+        brand: "Instagram",
+        label: "Gradient circle camera",
+        caption: "Circle camera version",
+        logoKey: "instagram-circle"
+      }
+    ]
+  },
+  {
+    id: "amazon-smile",
+    brandName: "Amazon",
+    prompt: "Which Amazon wordmark has the correct smile color?",
+    explanation: "Amazon pairs a dark wordmark with an orange smile arrow.",
+    correctOptionId: "amazon-real",
+    options: [
+      {
+        id: "amazon-blue",
+        brand: "Amazon",
+        label: "Blue smile under dark text",
+        caption: "Blue smile version",
+        logoKey: "amazon-blue"
+      },
+      {
+        id: "amazon-real",
+        brand: "Amazon",
+        label: "Orange smile under dark text",
+        caption: "Orange smile version",
+        logoKey: "amazon-real"
+      },
+      {
+        id: "amazon-over",
+        brand: "Amazon",
+        label: "Orange smile above text",
+        caption: "Smile above wordmark",
+        logoKey: "amazon-over"
+      }
+    ]
+  },
+  {
+    id: "apple-silhouette",
+    brandName: "Apple",
+    prompt: "Which Apple mark has the correct basic silhouette?",
+    explanation: "Apple's mark is a simple apple silhouette with a bite and a detached leaf.",
+    correctOptionId: "apple-real",
+    options: [
+      {
+        id: "apple-real",
+        brand: "Apple",
+        label: "Apple shape with bite and leaf",
+        caption: "Shape with side cutout",
+        logoKey: "apple-real"
+      },
+      {
+        id: "apple-no-bite",
+        brand: "Apple",
+        label: "Apple shape with no bite",
+        caption: "Smooth apple shape",
+        logoKey: "apple-no-bite"
+      },
+      {
+        id: "apple-stem",
+        brand: "Apple",
+        label: "Apple shape with a stem",
+        caption: "Shape with stem detail",
+        logoKey: "apple-stem"
+      }
+    ]
+  },
+  {
+    id: "nike-swoosh",
+    brandName: "Nike",
+    prompt: "Which Nike mark has the correct swoosh feel?",
+    explanation: "Nike's mark is a single smooth, rising swoosh.",
+    correctOptionId: "nike-real",
+    options: [
+      {
+        id: "nike-real",
+        brand: "Nike",
+        label: "Single rising swoosh",
+        caption: "Single sweeping curve",
+        logoKey: "nike-real"
+      },
+      {
+        id: "nike-double",
+        brand: "Nike",
+        label: "Double swoosh",
+        caption: "Two-stroke version",
+        logoKey: "nike-double"
+      },
+      {
+        id: "nike-down",
+        brand: "Nike",
+        label: "Downward swoosh",
+        caption: "Downward curve version",
+        logoKey: "nike-down"
+      }
+    ]
+  }
+];
+
 const rooms = new Map();
 const socketIndex = new Map();
 
@@ -76,6 +379,10 @@ function normalizeRoomCode(value) {
     .slice(0, 6);
 }
 
+function normalizeGameType(value) {
+  return value === "logo-quiz" ? "logo-quiz" : "guess-who";
+}
+
 function createRoomCode() {
   for (let attempt = 0; attempt < 80; attempt += 1) {
     let code = "";
@@ -106,18 +413,26 @@ function pickPrompts(count) {
   return picked.slice(0, count);
 }
 
-function createRoom(roundCount) {
+function pickLogoQuestions(count) {
+  return shuffle(logoQuestions).slice(0, Math.min(count, logoQuestions.length));
+}
+
+function createRoom(roundCount, gameType) {
   return {
     code: createRoomCode(),
     hostToken: randomUUID(),
     hostSocketId: null,
+    gameType,
     phase: "lobby",
     roundIndex: 0,
     roundCount,
     promptQueue: [],
+    logoQuestionQueue: [],
     currentPrompt: null,
+    currentLogoQuestion: null,
     activePlayerIds: [],
     submissions: new Map(),
+    quizAnswers: new Map(),
     answerOrder: [],
     answerIndex: 0,
     votes: new Map(),
@@ -136,8 +451,26 @@ function publicPlayer(player, room) {
     connected: player.connected,
     colorIndex: player.colorIndex,
     isActive: room.activePlayerIds.includes(player.id),
-    hasSubmitted: room.submissions.has(player.id),
-    hasVoted: room.votes.has(player.id)
+    hasSubmitted: room.gameType === "logo-quiz" ? room.quizAnswers.has(player.id) : room.submissions.has(player.id),
+    hasVoted: room.gameType === "logo-quiz" ? room.quizAnswers.has(player.id) : room.votes.has(player.id)
+  };
+}
+
+function getPublicLogoQuestion(question) {
+  if (!question) {
+    return null;
+  }
+  return {
+    id: question.id,
+    brandName: question.brandName,
+    prompt: question.prompt,
+    options: question.options.map((option) => ({
+      id: option.id,
+      brand: option.brand,
+      label: option.label,
+      caption: option.caption,
+      logoKey: option.logoKey
+    }))
   };
 }
 
@@ -161,13 +494,22 @@ function getVoteProgress(room) {
   };
 }
 
+function getQuizProgress(room) {
+  return {
+    done: [...room.quizAnswers.keys()].filter((id) => room.activePlayerIds.includes(id)).length,
+    total: room.activePlayerIds.length
+  };
+}
+
 function makeState(room, socket, playerId, isHost) {
   const currentSubmission = getCurrentSubmission(room);
   const player = playerId ? room.players.get(playerId) : null;
   const voteProgress = getVoteProgress(room);
+  const quizProgress = getQuizProgress(room);
 
   return {
     roomCode: room.code,
+    gameType: room.gameType,
     phase: room.phase,
     roundIndex: room.roundIndex,
     roundCount: room.roundCount,
@@ -181,6 +523,11 @@ function makeState(room, socket, playerId, isHost) {
       total: room.activePlayerIds.length
     },
     voteProgress,
+    quizProgress,
+    logoQuestion:
+      room.currentLogoQuestion && (room.phase === "quiz" || room.phase === "quiz-reveal")
+        ? getPublicLogoQuestion(room.currentLogoQuestion)
+        : null,
     currentAnswer:
       currentSubmission && (room.phase === "guess" || room.phase === "reveal")
         ? {
@@ -191,14 +538,20 @@ function makeState(room, socket, playerId, isHost) {
           }
         : null,
     reveal: room.phase === "reveal" ? room.reveal : null,
+    quizReveal: room.phase === "quiz-reveal" ? room.reveal : null,
     mySubmitted: playerId ? room.submissions.has(playerId) : false,
     myVote: playerId ? room.votes.get(playerId) ?? null : null,
+    myQuizAnswer: playerId ? room.quizAnswers.get(playerId) ?? null : null,
     eligibleToVote:
       !!playerId &&
       !!currentSubmission &&
       room.phase === "guess" &&
       room.activePlayerIds.includes(playerId) &&
       currentSubmission.playerId !== playerId,
+    eligibleToAnswer:
+      !!playerId &&
+      room.phase === "quiz" &&
+      room.activePlayerIds.includes(playerId),
     serverTime: Date.now()
   };
 }
@@ -256,6 +609,10 @@ function getPlayerRoom(socket, callback) {
 }
 
 function startRound(room) {
+  if (room.gameType === "logo-quiz") {
+    startLogoQuestion(room);
+    return;
+  }
   room.currentPrompt = room.promptQueue[room.roundIndex] ?? prompts[room.roundIndex % prompts.length];
   room.activePlayerIds = [...room.players.values()]
     .filter((player) => player.connected)
@@ -266,6 +623,21 @@ function startRound(room) {
   room.votes = new Map();
   room.reveal = null;
   room.phase = "submit";
+}
+
+function startLogoQuestion(room) {
+  room.currentPrompt = null;
+  room.currentLogoQuestion = room.logoQuestionQueue[room.roundIndex] ?? logoQuestions[room.roundIndex % logoQuestions.length];
+  room.activePlayerIds = [...room.players.values()]
+    .filter((player) => player.connected)
+    .map((player) => player.id);
+  room.submissions = new Map();
+  room.quizAnswers = new Map();
+  room.answerOrder = [];
+  room.answerIndex = 0;
+  room.votes = new Map();
+  room.reveal = null;
+  room.phase = "quiz";
 }
 
 function prepareGuessing(room) {
@@ -327,7 +699,67 @@ function revealCurrentAnswer(room) {
   room.phase = "reveal";
 }
 
+function revealLogoQuestion(room) {
+  const question = room.currentLogoQuestion;
+  if (!question) {
+    return;
+  }
+  if (room.reveal) {
+    room.phase = "quiz-reveal";
+    return;
+  }
+
+  const answerRows = [];
+  for (const playerId of room.activePlayerIds) {
+    const player = room.players.get(playerId);
+    if (!player) {
+      continue;
+    }
+    const optionId = room.quizAnswers.get(playerId) ?? null;
+    const selectedOption = question.options.find((option) => option.id === optionId) ?? null;
+    const isCorrect = optionId === question.correctOptionId;
+    if (isCorrect) {
+      player.score += 1;
+    }
+    answerRows.push({
+      playerId,
+      playerName: player.name,
+      optionId,
+      optionLabel: selectedOption?.label ?? "No answer",
+      isCorrect
+    });
+  }
+
+  room.reveal = {
+    correctOptionId: question.correctOptionId,
+    correctLabel: question.options.find((option) => option.id === question.correctOptionId)?.label ?? "Correct option",
+    explanation: question.explanation,
+    answers: answerRows
+  };
+  room.phase = "quiz-reveal";
+}
+
 function advanceAfterReveal(room) {
+  if (room.gameType === "logo-quiz") {
+    if (room.roundIndex < room.roundCount - 1) {
+      room.roundIndex += 1;
+      startLogoQuestion(room);
+      return;
+    }
+
+    room.phase = "finished";
+    room.currentPrompt = null;
+    room.currentLogoQuestion = null;
+    room.activePlayerIds = [];
+    room.submissions = new Map();
+    room.quizAnswers = new Map();
+    room.answerOrder = [];
+    room.answerIndex = 0;
+    room.votes = new Map();
+    room.reveal = null;
+    return;
+  }
+
   if (room.answerIndex < room.answerOrder.length - 1) {
     room.answerIndex += 1;
     room.votes = new Map();
@@ -344,8 +776,10 @@ function advanceAfterReveal(room) {
 
   room.phase = "finished";
   room.currentPrompt = null;
+  room.currentLogoQuestion = null;
   room.activePlayerIds = [];
   room.submissions = new Map();
+  room.quizAnswers = new Map();
   room.answerOrder = [];
   room.answerIndex = 0;
   room.votes = new Map();
@@ -354,9 +788,11 @@ function advanceAfterReveal(room) {
 
 io.on("connection", (socket) => {
   socket.on("host:create", (payload = {}, callback) => {
+    const gameType = normalizeGameType(payload.gameType);
     const requestedRounds = Number(payload.roundCount);
-    const roundCount = clamp(Number.isFinite(requestedRounds) ? requestedRounds : 5, 1, 10);
-    const room = createRoom(roundCount);
+    const roundCount =
+      gameType === "logo-quiz" ? logoQuestions.length : clamp(Number.isFinite(requestedRounds) ? requestedRounds : 5, 1, 10);
+    const room = createRoom(roundCount, gameType);
     room.hostSocketId = socket.id;
     rooms.set(room.code, room);
 
@@ -447,12 +883,14 @@ io.on("connection", (socket) => {
       return;
     }
     const connectedPlayers = [...room.players.values()].filter((player) => player.connected);
-    if (connectedPlayers.length < 2) {
-      replyError(callback, "Need at least 2 connected players.");
+    const minimumPlayers = room.gameType === "logo-quiz" ? 1 : 2;
+    if (connectedPlayers.length < minimumPlayers) {
+      replyError(callback, `Need at least ${minimumPlayers} connected ${minimumPlayers === 1 ? "player" : "players"}.`);
       return;
     }
 
-    room.promptQueue = pickPrompts(room.roundCount);
+    room.promptQueue = room.gameType === "guess-who" ? pickPrompts(room.roundCount) : [];
+    room.logoQuestionQueue = room.gameType === "logo-quiz" ? pickLogoQuestions(room.roundCount) : [];
     room.roundIndex = 0;
     for (const player of room.players.values()) {
       player.score = 0;
@@ -465,6 +903,12 @@ io.on("connection", (socket) => {
   socket.on("host:reveal", (_payload = {}, callback) => {
     const room = getHostRoom(socket, callback);
     if (!room) {
+      return;
+    }
+    if (room.phase === "quiz") {
+      revealLogoQuestion(room);
+      reply(callback, { ok: true });
+      emitRoom(room);
       return;
     }
     if (room.phase !== "guess") {
@@ -481,7 +925,11 @@ io.on("connection", (socket) => {
     if (!room) {
       return;
     }
-    if (room.phase === "guess") {
+    if (room.phase === "quiz") {
+      revealLogoQuestion(room);
+    } else if (room.phase === "quiz-reveal") {
+      advanceAfterReveal(room);
+    } else if (room.phase === "guess") {
       revealCurrentAnswer(room);
     } else if (room.phase === "reveal") {
       advanceAfterReveal(room);
@@ -501,8 +949,10 @@ io.on("connection", (socket) => {
     room.phase = "lobby";
     room.roundIndex = 0;
     room.currentPrompt = null;
+    room.currentLogoQuestion = null;
     room.activePlayerIds = [];
     room.submissions = new Map();
+    room.quizAnswers = new Map();
     room.answerOrder = [];
     room.answerIndex = 0;
     room.votes = new Map();
@@ -510,6 +960,33 @@ io.on("connection", (socket) => {
     for (const player of room.players.values()) {
       player.score = 0;
     }
+    reply(callback, { ok: true });
+    emitRoom(room);
+  });
+
+  socket.on("player:quiz-answer", (payload = {}, callback) => {
+    const { room, player } = getPlayerRoom(socket, callback);
+    if (!room || !player) {
+      return;
+    }
+    if (room.phase !== "quiz" || !room.activePlayerIds.includes(player.id)) {
+      replyError(callback, "Answers are closed.");
+      return;
+    }
+    const question = room.currentLogoQuestion;
+    const optionId = String(payload.optionId ?? "");
+    if (!question || !question.options.some((option) => option.id === optionId)) {
+      replyError(callback, "Choose one of the visible options.");
+      return;
+    }
+
+    room.quizAnswers.set(player.id, optionId);
+
+    const progress = getQuizProgress(room);
+    if (progress.total > 0 && progress.done >= progress.total) {
+      revealLogoQuestion(room);
+    }
+
     reply(callback, { ok: true });
     emitRoom(room);
   });

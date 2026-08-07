@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
+  BadgeCheck,
   CheckCircle2,
   ChevronRight,
   Clipboard,
@@ -9,15 +10,18 @@ import {
   Play,
   RefreshCw,
   Send,
+  Shapes,
   Sparkles,
   Trophy,
+  XCircle,
   Users
 } from "lucide-react";
 import { io } from "socket.io-client";
 import type { Socket } from "socket.io-client";
 
-type Phase = "lobby" | "submit" | "guess" | "reveal" | "finished";
+type Phase = "lobby" | "submit" | "guess" | "reveal" | "quiz" | "quiz-reveal" | "finished";
 type Mode = "host" | "join";
+type GameType = "guess-who" | "logo-quiz";
 
 type Player = {
   id: string;
@@ -47,8 +51,37 @@ type Reveal = {
   authorBonus: boolean;
 };
 
+type LogoOption = {
+  id: string;
+  brand: string;
+  label: string;
+  caption: string;
+  logoKey: string;
+};
+
+type LogoQuestion = {
+  id: string;
+  brandName: string;
+  prompt: string;
+  options: LogoOption[];
+};
+
+type QuizReveal = {
+  correctOptionId: string;
+  correctLabel: string;
+  explanation: string;
+  answers: Array<{
+    playerId: string;
+    playerName: string;
+    optionId: string | null;
+    optionLabel: string;
+    isCorrect: boolean;
+  }>;
+};
+
 type RoomState = {
   roomCode: string;
+  gameType: GameType;
   phase: Phase;
   roundIndex: number;
   roundCount: number;
@@ -59,11 +92,16 @@ type RoomState = {
   activePlayerIds: string[];
   submissionProgress: { done: number; total: number };
   voteProgress: { done: number; total: number };
+  quizProgress: { done: number; total: number };
+  logoQuestion: LogoQuestion | null;
   currentAnswer: { index: number; total: number; text: string; isMine: boolean } | null;
   reveal: Reveal | null;
+  quizReveal: QuizReveal | null;
   mySubmitted: boolean;
   myVote: string | null;
+  myQuizAnswer: string | null;
   eligibleToVote: boolean;
+  eligibleToAnswer: boolean;
   serverTime: number;
 };
 
@@ -84,6 +122,47 @@ const palette = [
   "rose",
   "blue",
   "charcoal"
+];
+
+const gameChoices: Array<{
+  type: GameType;
+  title: string;
+  description: string;
+}> = [
+  {
+    type: "guess-who",
+    title: "Guess Who Said It",
+    description: "Anonymous answers, group guesses"
+  },
+  {
+    type: "logo-quiz",
+    title: "Which Logo Is Correct",
+    description: "10 fast visual logo questions"
+  }
+];
+
+const visualLogoSamples: LogoOption[] = [
+  {
+    id: "sample-google",
+    brand: "Google",
+    label: "Correct color order",
+    caption: "A",
+    logoKey: "google-real"
+  },
+  {
+    id: "sample-youtube",
+    brand: "YouTube",
+    label: "Correct play mark",
+    caption: "B",
+    logoKey: "youtube-real"
+  },
+  {
+    id: "sample-target",
+    brand: "Target",
+    label: "Correct bullseye",
+    caption: "C",
+    logoKey: "target-blue"
+  }
 ];
 
 function getStoredPlayerId() {
@@ -123,6 +202,7 @@ function App() {
   const [mode, setMode] = useState<Mode>(getInitialRoomCode() ? "join" : "host");
   const [joinCode, setJoinCode] = useState(getInitialRoomCode());
   const [name, setName] = useState(localStorage.getItem("gwsi:name") ?? "");
+  const [gameType, setGameType] = useState<GameType>("logo-quiz");
   const [roundCount, setRoundCount] = useState(5);
   const [answer, setAnswer] = useState("");
   const [notice, setNotice] = useState("");
@@ -199,7 +279,7 @@ function App() {
     }
     setBusyAction("host:create");
     setNotice("");
-    socket.emit("host:create", { roundCount }, (response: Ack) => {
+    socket.emit("host:create", { roundCount: gameType === "logo-quiz" ? 10 : roundCount, gameType }, (response: Ack) => {
       setBusyAction("");
       if (!response.ok || !response.roomCode || !response.hostToken) {
         setNotice(response.error ?? "Could not create a room.");
@@ -301,21 +381,46 @@ function App() {
 
             {mode === "host" ? (
               <div className="form-stack">
-                <label className="field-label" htmlFor="rounds">
-                  Rounds
+                <label className="field-label" htmlFor="game-type">
+                  Game
                 </label>
-                <div className="stepper" id="rounds">
-                  {[3, 5, 7].map((count) => (
+                <div className="game-switch" id="game-type">
+                  {gameChoices.map((choice) => (
                     <button
-                      key={count}
+                      key={choice.type}
                       type="button"
-                      className={roundCount === count ? "selected" : ""}
-                      onClick={() => setRoundCount(count)}
+                      className={gameType === choice.type ? "selected" : ""}
+                      onClick={() => setGameType(choice.type)}
                     >
-                      {count}
+                      <strong>{choice.title}</strong>
+                      <span>{choice.description}</span>
                     </button>
                   ))}
                 </div>
+                {gameType === "guess-who" ? (
+                  <>
+                    <label className="field-label" htmlFor="rounds">
+                      Rounds
+                    </label>
+                    <div className="stepper" id="rounds">
+                      {[3, 5, 7].map((count) => (
+                        <button
+                          key={count}
+                          type="button"
+                          className={roundCount === count ? "selected" : ""}
+                          onClick={() => setRoundCount(count)}
+                        >
+                          {count}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <div className="locked-rounds">
+                    <BadgeCheck size={18} />
+                    10 questions
+                  </div>
+                )}
                 <button
                   className="primary-action"
                   type="button"
@@ -323,7 +428,7 @@ function App() {
                   disabled={!connected || busyAction === "host:create"}
                 >
                   {busyAction === "host:create" ? <Loader2 className="spin" size={20} /> : <Play size={20} />}
-                  Create room
+                  Create {gameType === "logo-quiz" ? "quiz" : "room"}
                 </button>
               </div>
             ) : (
@@ -363,20 +468,7 @@ function App() {
             <StatusLine connected={connected} notice={notice} />
           </div>
 
-          <div className="visual-board" aria-hidden="true">
-            <div className="visual-header">
-              <span />
-              <span />
-              <span />
-            </div>
-            <div className="answer-slip slip-one">I once gave a presentation with one shoe.</div>
-            <div className="answer-slip slip-two">My comfort food is fries dipped in ice cream.</div>
-            <div className="answer-slip slip-three">I can remember birthdays but not passwords.</div>
-            <div className="mini-score">
-              <Trophy size={28} />
-              <strong>+1</strong>
-            </div>
-          </div>
+          <StartVisualBoard gameType={gameType} />
         </section>
       </main>
     );
@@ -432,8 +524,19 @@ function App() {
               onReveal={() => emitAction("host:reveal")}
             />
           )}
+          {roomState.phase === "quiz" && (
+            <LogoQuizView
+              state={roomState}
+              busyAction={busyAction}
+              onAnswer={(optionId) => emitAction("player:quiz-answer", { optionId })}
+              onReveal={() => emitAction("host:reveal")}
+            />
+          )}
           {roomState.phase === "reveal" && (
             <RevealView state={roomState} busyAction={busyAction} onNext={() => emitAction("host:next")} />
+          )}
+          {roomState.phase === "quiz-reveal" && (
+            <LogoQuizRevealView state={roomState} busyAction={busyAction} onNext={() => emitAction("host:next")} />
           )}
           {roomState.phase === "finished" && (
             <FinishedView state={roomState} busyAction={busyAction} onReset={() => emitAction("host:reset")} />
@@ -457,6 +560,49 @@ function App() {
   );
 }
 
+function StartVisualBoard({ gameType }: { gameType: GameType }) {
+  if (gameType === "logo-quiz") {
+    return (
+      <div className="visual-board logo-visual" aria-hidden="true">
+        <div className="visual-header">
+          <span />
+          <span />
+          <span />
+        </div>
+        <div className="logo-visual-stack">
+          {visualLogoSamples.map((option, index) => (
+            <div className={`logo-preview-card preview-${index + 1}`} key={option.id}>
+              <LogoMark option={option} />
+              <span className="preview-label">{option.caption}</span>
+            </div>
+          ))}
+        </div>
+        <div className="mini-score">
+          <Shapes size={28} />
+          <strong>10Q</strong>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="visual-board" aria-hidden="true">
+      <div className="visual-header">
+        <span />
+        <span />
+        <span />
+      </div>
+      <div className="answer-slip slip-one">I once gave a presentation with one shoe.</div>
+      <div className="answer-slip slip-two">My comfort food is fries dipped in ice cream.</div>
+      <div className="answer-slip slip-three">I can remember birthdays but not passwords.</div>
+      <div className="mini-score">
+        <Trophy size={28} />
+        <strong>+1</strong>
+      </div>
+    </div>
+  );
+}
+
 function StatusLine({ connected, notice }: { connected: boolean; notice: string }) {
   return (
     <div className="status-line" role="status">
@@ -477,9 +623,10 @@ function ConnectionPill({ connected }: { connected: boolean }) {
 
 function RoundMeter({ state }: { state: RoomState }) {
   const currentRound = state.phase === "lobby" || state.phase === "finished" ? 0 : state.roundIndex + 1;
+  const unit = state.gameType === "logo-quiz" ? "Question" : "Round";
   return (
     <div className="round-meter">
-      <span>{state.phase === "finished" ? "Final scores" : `Round ${currentRound || 1} of ${state.roundCount}`}</span>
+      <span>{state.phase === "finished" ? "Final scores" : `${unit} ${currentRound || 1} of ${state.roundCount}`}</span>
       <div className="meter-track">
         <span style={{ width: `${Math.max((currentRound / state.roundCount) * 100, 8)}%` }} />
       </div>
@@ -498,23 +645,27 @@ function LobbyView({
   onReset: () => void;
 }) {
   const connectedPlayers = state.players.filter((player) => player.connected).length;
+  const isLogoQuiz = state.gameType === "logo-quiz";
+  const minimumPlayers = isLogoQuiz ? 1 : 2;
   return (
     <section className="phase-view">
       <div className="phase-kicker">
-        <Users size={18} />
+        {isLogoQuiz ? <Shapes size={18} /> : <Users size={18} />}
         {connectedPlayers} joined
       </div>
       <h2>Room code {state.roomCode}</h2>
-      <p className="phase-copy">Wait for the names to fill in, then start the first prompt.</p>
+      <p className="phase-copy">
+        {isLogoQuiz ? "Start the 10-question logo challenge when players are ready." : "Wait for the names to fill in, then start the first prompt."}
+      </p>
       {state.isHost ? (
         <button
           className="primary-action fit"
           type="button"
           onClick={onStart}
-          disabled={connectedPlayers < 2 || busyAction === "host:start"}
+          disabled={connectedPlayers < minimumPlayers || busyAction === "host:start"}
         >
           {busyAction === "host:start" ? <Loader2 className="spin" size={20} /> : <Play size={20} />}
-          Start game
+          Start {isLogoQuiz ? "quiz" : "game"}
         </button>
       ) : (
         <div className="waiting-chip">
@@ -640,6 +791,143 @@ function GuessView({
   );
 }
 
+function LogoQuizView({
+  state,
+  busyAction,
+  onAnswer,
+  onReveal
+}: {
+  state: RoomState;
+  busyAction: string;
+  onAnswer: (optionId: string) => void;
+  onReveal: () => void;
+}) {
+  const question = state.logoQuestion;
+  if (!question) {
+    return (
+      <section className="phase-view">
+        <div className="waiting-chip">
+          <Loader2 className="spin" size={18} />
+          Loading question
+        </div>
+      </section>
+    );
+  }
+
+  const answered = Boolean(state.myQuizAnswer);
+
+  return (
+    <section className="phase-view quiz-view">
+      <div className="phase-kicker">
+        <Shapes size={18} />
+        {question.brandName}
+      </div>
+      <h2>{question.prompt}</h2>
+      <ProgressText done={state.quizProgress.done} total={state.quizProgress.total} label="answered" />
+      <div className="logo-options">
+        {question.options.map((option) => (
+          <LogoOptionCard
+            key={option.id}
+            option={option}
+            selected={state.myQuizAnswer === option.id}
+            disabled={state.isHost || answered || busyAction === "player:quiz-answer"}
+            onChoose={state.isHost ? undefined : () => onAnswer(option.id)}
+          />
+        ))}
+      </div>
+      {state.isHost ? (
+        <button
+          className="secondary-action fit"
+          type="button"
+          onClick={onReveal}
+          disabled={busyAction === "host:reveal"}
+        >
+          {busyAction === "host:reveal" ? <Loader2 className="spin" size={20} /> : <ChevronRight size={20} />}
+          Reveal answer
+        </button>
+      ) : answered ? (
+        <div className="waiting-chip">
+          <CheckCircle2 size={18} />
+          Answer locked in
+        </div>
+      ) : (
+        <div className="waiting-chip quiet">
+          <Shapes size={18} />
+          Pick the correct logo
+        </div>
+      )}
+    </section>
+  );
+}
+
+function LogoQuizRevealView({
+  state,
+  busyAction,
+  onNext
+}: {
+  state: RoomState;
+  busyAction: string;
+  onNext: () => void;
+}) {
+  const question = state.logoQuestion;
+  const reveal = state.quizReveal;
+  const isLastQuestion = state.roundIndex + 1 >= state.roundCount;
+  const nextLabel = isLastQuestion ? "Finish" : "Next question";
+
+  return (
+    <section className="phase-view quiz-view">
+      <div className="phase-kicker">
+        <BadgeCheck size={18} />
+        Correct logo
+      </div>
+      <h2>{question?.brandName ?? "Logo"} reveal</h2>
+      {question && (
+        <div className="logo-options reveal-options">
+          {question.options.map((option) => {
+            const isCorrect = reveal?.correctOptionId === option.id;
+            const selected = state.myQuizAnswer === option.id;
+            return (
+              <LogoOptionCard
+                key={option.id}
+                option={option}
+                selected={selected}
+                correct={isCorrect}
+                wrong={selected && !isCorrect}
+                disabled
+              />
+            );
+          })}
+        </div>
+      )}
+      <div className="reveal-banner quiz-correct-banner">
+        <CheckCircle2 size={22} />
+        <span>{reveal?.correctLabel ?? "Correct answer"}</span>
+      </div>
+      <p className="phase-copy">{reveal?.explanation}</p>
+      <div className="vote-list">
+        {reveal?.answers.map((answer) => (
+          <div className={answer.isCorrect ? "vote-row correct" : "vote-row"} key={answer.playerId}>
+            <span>{answer.playerName}</span>
+            {answer.isCorrect ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
+            <strong>{answer.optionLabel}</strong>
+          </div>
+        ))}
+      </div>
+      {state.isHost ? (
+        <button className="primary-action fit" type="button" onClick={onNext} disabled={busyAction === "host:next"}>
+          {busyAction === "host:next" ? <Loader2 className="spin" size={20} /> : <ChevronRight size={20} />}
+          {nextLabel}
+        </button>
+      ) : (
+        <div className="waiting-chip">
+          <Loader2 className="spin" size={18} />
+          Waiting for host
+        </div>
+      )}
+    </section>
+  );
+}
+
 function RevealView({
   state,
   busyAction,
@@ -700,13 +988,14 @@ function FinishedView({
   onReset: () => void;
 }) {
   const winners = sortByScore(state.players).slice(0, 3);
+  const isLogoQuiz = state.gameType === "logo-quiz";
   return (
     <section className="phase-view">
       <div className="phase-kicker">
-        <Trophy size={18} />
+        {isLogoQuiz ? <Shapes size={18} /> : <Trophy size={18} />}
         Final
       </div>
-      <h2>Top guesses</h2>
+      <h2>{isLogoQuiz ? "Logo champs" : "Top guesses"}</h2>
       <div className="podium">
         {winners.map((player, index) => (
           <div className={`podium-place place-${index + 1}`} key={player.id}>
@@ -723,6 +1012,208 @@ function FinishedView({
         </button>
       )}
     </section>
+  );
+}
+
+function LogoOptionCard({
+  option,
+  selected = false,
+  correct = false,
+  wrong = false,
+  disabled = false,
+  onChoose
+}: {
+  option: LogoOption;
+  selected?: boolean;
+  correct?: boolean;
+  wrong?: boolean;
+  disabled?: boolean;
+  onChoose?: () => void;
+}) {
+  const className = [
+    "logo-choice-card",
+    selected ? "selected" : "",
+    correct ? "correct" : "",
+    wrong ? "wrong" : ""
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return (
+    <button className={className} type="button" onClick={onChoose} disabled={disabled || !onChoose}>
+      <LogoMark option={option} />
+      <span className="logo-option-copy">
+        <strong>{option.label}</strong>
+        <small>{option.caption}</small>
+      </span>
+    </button>
+  );
+}
+
+function LogoMark({ option }: { option: LogoOption }) {
+  switch (option.logoKey) {
+    case "google-real":
+      return <GoogleWord colors={["blue", "red", "yellow", "blue", "green", "red"]} />;
+    case "google-swap":
+      return <GoogleWord colors={["green", "red", "yellow", "blue", "blue", "red"]} />;
+    case "google-muted":
+      return <GoogleWord colors={["muted", "muted", "muted", "muted", "muted", "muted"]} />;
+    case "youtube-real":
+      return <PlayBadge color="red" shape="rounded" />;
+    case "youtube-circle":
+      return <PlayBadge color="red" shape="circle" />;
+    case "youtube-dark":
+      return <PlayBadge color="dark" shape="rounded" />;
+    case "spotify-real":
+      return <WaveBadge color="green" shape="circle" />;
+    case "spotify-blue":
+      return <WaveBadge color="blue" shape="circle" />;
+    case "spotify-square":
+      return <WaveBadge color="green" shape="square" />;
+    case "target-real":
+      return <TargetMark variant="real" />;
+    case "target-blue":
+      return <TargetMark variant="blue" />;
+    case "target-inverted":
+      return <TargetMark variant="inverted" />;
+    case "mcdonalds-real":
+      return <ArchMark color="gold" />;
+    case "mcdonalds-red":
+      return <ArchMark color="red" />;
+    case "mcdonalds-blue":
+      return <ArchMark color="blue" />;
+    case "microsoft-real":
+      return <PaneMark variant="real" />;
+    case "microsoft-purple":
+      return <PaneMark variant="purple" />;
+    case "microsoft-mono":
+      return <PaneMark variant="mono" />;
+    case "instagram-real":
+      return <CameraMark variant="gradient-square" />;
+    case "instagram-blue":
+      return <CameraMark variant="blue" />;
+    case "instagram-circle":
+      return <CameraMark variant="gradient-circle" />;
+    case "amazon-real":
+      return <SmileWord color="orange" placement="under" />;
+    case "amazon-blue":
+      return <SmileWord color="blue" placement="under" />;
+    case "amazon-over":
+      return <SmileWord color="orange" placement="over" />;
+    case "apple-real":
+      return <AppleMark variant="bite" />;
+    case "apple-no-bite":
+      return <AppleMark variant="plain" />;
+    case "apple-stem":
+      return <AppleMark variant="stem" />;
+    case "nike-real":
+      return <SwooshMark variant="up" />;
+    case "nike-double":
+      return <SwooshMark variant="double" />;
+    case "nike-down":
+      return <SwooshMark variant="down" />;
+    default:
+      return (
+        <div className="logo-mark generic-mark">
+          <Shapes size={34} />
+          <strong>{option.brand}</strong>
+        </div>
+      );
+  }
+}
+
+function GoogleWord({ colors }: { colors: string[] }) {
+  return (
+    <div className="logo-mark google-word" aria-label="Google-style wordmark">
+      {"Google".split("").map((letter, index) => (
+        <span className={`google-${colors[index]}`} key={`${letter}-${index}`}>
+          {letter}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function PlayBadge({ color, shape }: { color: "red" | "dark"; shape: "rounded" | "circle" }) {
+  return (
+    <div className={`logo-mark play-badge ${color} ${shape}`}>
+      <span />
+    </div>
+  );
+}
+
+function WaveBadge({ color, shape }: { color: "green" | "blue"; shape: "circle" | "square" }) {
+  return (
+    <div className={`logo-mark wave-badge ${color} ${shape}`}>
+      <span />
+      <span />
+      <span />
+    </div>
+  );
+}
+
+function TargetMark({ variant }: { variant: "real" | "blue" | "inverted" }) {
+  return (
+    <div className={`logo-mark target-mark ${variant}`}>
+      <span />
+    </div>
+  );
+}
+
+function ArchMark({ color }: { color: "gold" | "red" | "blue" }) {
+  return (
+    <div className={`logo-mark arch-mark ${color}`}>
+      <span>M</span>
+    </div>
+  );
+}
+
+function PaneMark({ variant }: { variant: "real" | "purple" | "mono" }) {
+  return (
+    <div className={`logo-mark pane-mark ${variant}`}>
+      <span />
+      <span />
+      <span />
+      <span />
+    </div>
+  );
+}
+
+function CameraMark({ variant }: { variant: "gradient-square" | "blue" | "gradient-circle" }) {
+  return (
+    <div className={`logo-mark camera-mark ${variant}`}>
+      <span />
+      <i />
+    </div>
+  );
+}
+
+function SmileWord({ color, placement }: { color: "orange" | "blue"; placement: "under" | "over" }) {
+  return (
+    <div className={`logo-mark smile-word ${color} ${placement}`}>
+      <strong>amazon</strong>
+      <span />
+    </div>
+  );
+}
+
+function AppleMark({ variant }: { variant: "bite" | "plain" | "stem" }) {
+  return (
+    <div className={`logo-mark apple-mark ${variant}`}>
+      <span className="apple-leaf" />
+      <span className="apple-body" />
+      {variant === "bite" && <span className="apple-bite" />}
+      {variant === "stem" && <span className="apple-stem" />}
+    </div>
+  );
+}
+
+function SwooshMark({ variant }: { variant: "up" | "double" | "down" }) {
+  return (
+    <div className={`logo-mark swoosh-mark ${variant}`}>
+      <span />
+      {variant === "double" && <span />}
+    </div>
   );
 }
 
