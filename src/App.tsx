@@ -242,7 +242,7 @@ function useCountdownSeconds(endsAt: number | null, durationMs: number | null) {
   }, [endsAt]);
 
   const remainingMs = endsAt ? Math.max(0, endsAt - now) : 0;
-  const totalMs = durationMs ?? 20_000;
+  const totalMs = durationMs ?? 45_000;
 
   return {
     remainingSeconds: Math.ceil(remainingMs / 1000),
@@ -481,7 +481,7 @@ function App() {
                 ) : (
                   <div className="locked-rounds">
                     {gameType === "four-pics" ? <Timer size={18} /> : <BadgeCheck size={18} />}
-                    {gameType === "four-pics" ? "10 questions | 20 sec each" : "10 questions"}
+                    {gameType === "four-pics" ? "10 questions | 45 sec each" : "10 questions"}
                   </div>
                 )}
                 <button
@@ -656,7 +656,7 @@ function StartVisualBoard({ gameType }: { gameType: GameType }) {
         </div>
         <div className="mini-score">
           <Timer size={28} />
-          <strong>20s</strong>
+          <strong>45s</strong>
         </div>
       </div>
     );

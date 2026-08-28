@@ -15,7 +15,7 @@ const MAX_PLAYERS = 24;
 const ROOM_TTL_MS = 2 * 60 * 60 * 1000;
 const ROOM_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const FOUR_PICS_ROUND_COUNT = 10;
-const WORD_QUESTION_DURATION_MS = 20 * 1000;
+const WORD_QUESTION_DURATION_MS = 45 * 1000;
 
 const prompts = [
   "A tiny thing that always makes my day better",
