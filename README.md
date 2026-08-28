@@ -1,7 +1,8 @@
 # CDL Ice Breakers
 
-A live icebreaker game for small groups. The host creates a room, players join with a code, then plays one of two modes:
+A live icebreaker game for small groups. The host creates a room, players join with a code, then plays one of three modes:
 
+- **4 Pics 1 Word**: a 10-question picture-word puzzle with a 20-second timer per question and +1 scoring for correct answers.
 - **Which Logo Is Correct**: a 10-question visual logo quiz.
 - **Guess Who Said It**: anonymous prompt answers, group guesses, and reveals.
 

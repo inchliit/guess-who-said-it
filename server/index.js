@@ -14,6 +14,8 @@ const PORT = process.env.PORT || 3000;
 const MAX_PLAYERS = 24;
 const ROOM_TTL_MS = 2 * 60 * 60 * 1000;
 const ROOM_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const FOUR_PICS_ROUND_COUNT = 10;
+const WORD_QUESTION_DURATION_MS = 20 * 1000;
 
 const prompts = [
   "A tiny thing that always makes my day better",
@@ -333,6 +335,93 @@ const logoQuestions = [
   }
 ];
 
+const fourPicsQuestions = [
+  {
+    id: "gift",
+    prompt: "What word connects these four pictures?",
+    answer: "GIFT",
+    image: "/4pics1word/5.jpg",
+    revealImage: "/4pics1word/6.jpg"
+  },
+  {
+    id: "think",
+    prompt: "What word connects these four pictures?",
+    answer: "THINK",
+    image: "/4pics1word/7.jpg",
+    revealImage: "/4pics1word/8.jpg"
+  },
+  {
+    id: "event",
+    prompt: "What word connects these four pictures?",
+    answer: "EVENT",
+    image: "/4pics1word/9.jpg",
+    revealImage: "/4pics1word/10.jpg"
+  },
+  {
+    id: "rich",
+    prompt: "What word connects these four pictures?",
+    answer: "RICH",
+    image: "/4pics1word/11.jpg",
+    revealImage: "/4pics1word/12.jpg"
+  },
+  {
+    id: "task",
+    prompt: "What word connects these four pictures?",
+    answer: "TASK",
+    image: "/4pics1word/14.jpg",
+    revealImage: "/4pics1word/15.jpg"
+  },
+  {
+    id: "light",
+    prompt: "What word connects these four pictures?",
+    answer: "LIGHT",
+    image: "/4pics1word/16.jpg",
+    revealImage: "/4pics1word/17.jpg"
+  },
+  {
+    id: "catch",
+    prompt: "What word connects these four pictures?",
+    answer: "CATCH",
+    image: "/4pics1word/18.jpg",
+    revealImage: "/4pics1word/19.jpg"
+  },
+  {
+    id: "crime",
+    prompt: "What word connects these four pictures?",
+    answer: "CRIME",
+    image: "/4pics1word/20.jpg",
+    revealImage: "/4pics1word/21.jpg"
+  },
+  {
+    id: "summer",
+    prompt: "What word connects these four pictures?",
+    answer: "SUMMER",
+    image: "/4pics1word/23.jpg",
+    revealImage: "/4pics1word/24.jpg"
+  },
+  {
+    id: "active",
+    prompt: "What word connects these four pictures?",
+    answer: "ACTIVE",
+    image: "/4pics1word/25.jpg",
+    revealImage: "/4pics1word/26.jpg"
+  },
+  {
+    id: "launch",
+    prompt: "What word connects these four pictures?",
+    answer: "LAUNCH",
+    image: "/4pics1word/27.jpg",
+    revealImage: "/4pics1word/28.jpg"
+  },
+  {
+    id: "expand",
+    prompt: "What word connects these four pictures?",
+    answer: "EXPAND",
+    image: "/4pics1word/29.jpg",
+    revealImage: "/4pics1word/30.jpg"
+  }
+];
+
 const rooms = new Map();
 const socketIndex = new Map();
 
@@ -371,6 +460,14 @@ function sanitizeAnswer(value) {
     .slice(0, 180);
 }
 
+function normalizeWordGuess(value) {
+  return String(value ?? "")
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "")
+    .slice(0, 40);
+}
+
 function normalizeRoomCode(value) {
   return String(value ?? "")
     .trim()
@@ -380,7 +477,10 @@ function normalizeRoomCode(value) {
 }
 
 function normalizeGameType(value) {
-  return value === "logo-quiz" ? "logo-quiz" : "guess-who";
+  if (value === "logo-quiz" || value === "four-pics") {
+    return value;
+  }
+  return "guess-who";
 }
 
 function createRoomCode() {
@@ -417,6 +517,17 @@ function pickLogoQuestions(count) {
   return shuffle(logoQuestions).slice(0, Math.min(count, logoQuestions.length));
 }
 
+function pickFourPicsQuestions(count) {
+  return shuffle(fourPicsQuestions).slice(0, Math.min(count, fourPicsQuestions.length));
+}
+
+function clearQuestionTimer(room) {
+  if (room.questionTimer) {
+    clearTimeout(room.questionTimer);
+    room.questionTimer = null;
+  }
+}
+
 function createRoom(roundCount, gameType) {
   return {
     code: createRoomCode(),
@@ -428,11 +539,17 @@ function createRoom(roundCount, gameType) {
     roundCount,
     promptQueue: [],
     logoQuestionQueue: [],
+    wordQuestionQueue: [],
     currentPrompt: null,
     currentLogoQuestion: null,
+    currentWordQuestion: null,
+    questionDurationMs: WORD_QUESTION_DURATION_MS,
+    questionEndsAt: null,
+    questionTimer: null,
     activePlayerIds: [],
     submissions: new Map(),
     quizAnswers: new Map(),
+    wordAnswers: new Map(),
     answerOrder: [],
     answerIndex: 0,
     votes: new Map(),
@@ -444,6 +561,12 @@ function createRoom(roundCount, gameType) {
 }
 
 function publicPlayer(player, room) {
+  const hasAnswered =
+    room.gameType === "logo-quiz"
+      ? room.quizAnswers.has(player.id)
+      : room.gameType === "four-pics"
+        ? room.wordAnswers.has(player.id)
+        : room.submissions.has(player.id);
   return {
     id: player.id,
     name: player.name,
@@ -451,8 +574,8 @@ function publicPlayer(player, room) {
     connected: player.connected,
     colorIndex: player.colorIndex,
     isActive: room.activePlayerIds.includes(player.id),
-    hasSubmitted: room.gameType === "logo-quiz" ? room.quizAnswers.has(player.id) : room.submissions.has(player.id),
-    hasVoted: room.gameType === "logo-quiz" ? room.quizAnswers.has(player.id) : room.votes.has(player.id)
+    hasSubmitted: hasAnswered,
+    hasVoted: room.gameType === "guess-who" ? room.votes.has(player.id) : hasAnswered
   };
 }
 
@@ -482,6 +605,18 @@ function getCurrentSubmission(room) {
   return room.submissions.get(playerId) ?? null;
 }
 
+function getPublicWordQuestion(question) {
+  if (!question) {
+    return null;
+  }
+  return {
+    id: question.id,
+    prompt: question.prompt,
+    image: question.image,
+    answerLength: question.answer.length
+  };
+}
+
 function getVoteProgress(room) {
   const submission = getCurrentSubmission(room);
   if (!submission) {
@@ -501,11 +636,19 @@ function getQuizProgress(room) {
   };
 }
 
+function getWordProgress(room) {
+  return {
+    done: [...room.wordAnswers.keys()].filter((id) => room.activePlayerIds.includes(id)).length,
+    total: room.activePlayerIds.length
+  };
+}
+
 function makeState(room, socket, playerId, isHost) {
   const currentSubmission = getCurrentSubmission(room);
   const player = playerId ? room.players.get(playerId) : null;
   const voteProgress = getVoteProgress(room);
   const quizProgress = getQuizProgress(room);
+  const wordProgress = getWordProgress(room);
 
   return {
     roomCode: room.code,
@@ -524,9 +667,14 @@ function makeState(room, socket, playerId, isHost) {
     },
     voteProgress,
     quizProgress,
+    wordProgress,
     logoQuestion:
       room.currentLogoQuestion && (room.phase === "quiz" || room.phase === "quiz-reveal")
         ? getPublicLogoQuestion(room.currentLogoQuestion)
+        : null,
+    wordQuestion:
+      room.currentWordQuestion && (room.phase === "word" || room.phase === "word-reveal")
+        ? getPublicWordQuestion(room.currentWordQuestion)
         : null,
     currentAnswer:
       currentSubmission && (room.phase === "guess" || room.phase === "reveal")
@@ -539,9 +687,11 @@ function makeState(room, socket, playerId, isHost) {
         : null,
     reveal: room.phase === "reveal" ? room.reveal : null,
     quizReveal: room.phase === "quiz-reveal" ? room.reveal : null,
+    wordReveal: room.phase === "word-reveal" ? room.reveal : null,
     mySubmitted: playerId ? room.submissions.has(playerId) : false,
     myVote: playerId ? room.votes.get(playerId) ?? null : null,
     myQuizAnswer: playerId ? room.quizAnswers.get(playerId) ?? null : null,
+    myWordAnswer: playerId ? room.wordAnswers.get(playerId)?.answer ?? null : null,
     eligibleToVote:
       !!playerId &&
       !!currentSubmission &&
@@ -552,6 +702,12 @@ function makeState(room, socket, playerId, isHost) {
       !!playerId &&
       room.phase === "quiz" &&
       room.activePlayerIds.includes(playerId),
+    eligibleToWordAnswer:
+      !!playerId &&
+      room.phase === "word" &&
+      room.activePlayerIds.includes(playerId),
+    questionEndsAt: room.phase === "word" ? room.questionEndsAt : null,
+    questionDurationMs: room.gameType === "four-pics" ? room.questionDurationMs : null,
     serverTime: Date.now()
   };
 }
@@ -613,7 +769,15 @@ function startRound(room) {
     startLogoQuestion(room);
     return;
   }
+  if (room.gameType === "four-pics") {
+    startWordQuestion(room);
+    return;
+  }
+  clearQuestionTimer(room);
   room.currentPrompt = room.promptQueue[room.roundIndex] ?? prompts[room.roundIndex % prompts.length];
+  room.currentLogoQuestion = null;
+  room.currentWordQuestion = null;
+  room.questionEndsAt = null;
   room.activePlayerIds = [...room.players.values()]
     .filter((player) => player.connected)
     .map((player) => player.id);
@@ -626,18 +790,53 @@ function startRound(room) {
 }
 
 function startLogoQuestion(room) {
+  clearQuestionTimer(room);
   room.currentPrompt = null;
   room.currentLogoQuestion = room.logoQuestionQueue[room.roundIndex] ?? logoQuestions[room.roundIndex % logoQuestions.length];
+  room.currentWordQuestion = null;
+  room.questionEndsAt = null;
   room.activePlayerIds = [...room.players.values()]
     .filter((player) => player.connected)
     .map((player) => player.id);
   room.submissions = new Map();
   room.quizAnswers = new Map();
+  room.wordAnswers = new Map();
   room.answerOrder = [];
   room.answerIndex = 0;
   room.votes = new Map();
   room.reveal = null;
   room.phase = "quiz";
+}
+
+function startWordQuestion(room) {
+  clearQuestionTimer(room);
+  room.currentPrompt = null;
+  room.currentLogoQuestion = null;
+  room.currentWordQuestion =
+    room.wordQuestionQueue[room.roundIndex] ?? fourPicsQuestions[room.roundIndex % fourPicsQuestions.length];
+  room.activePlayerIds = [...room.players.values()]
+    .filter((player) => player.connected)
+    .map((player) => player.id);
+  room.submissions = new Map();
+  room.quizAnswers = new Map();
+  room.wordAnswers = new Map();
+  room.answerOrder = [];
+  room.answerIndex = 0;
+  room.votes = new Map();
+  room.reveal = null;
+  room.questionEndsAt = Date.now() + room.questionDurationMs;
+  room.phase = "word";
+
+  const questionId = room.currentWordQuestion?.id;
+  room.questionTimer = setTimeout(() => {
+    const liveRoom = rooms.get(room.code);
+    if (!liveRoom || liveRoom !== room || liveRoom.phase !== "word" || liveRoom.currentWordQuestion?.id !== questionId) {
+      return;
+    }
+    revealWordQuestion(liveRoom);
+    emitRoom(liveRoom);
+  }, room.questionDurationMs);
+  room.questionTimer.unref?.();
 }
 
 function prepareGuessing(room) {
@@ -739,20 +938,70 @@ function revealLogoQuestion(room) {
   room.phase = "quiz-reveal";
 }
 
+function revealWordQuestion(room) {
+  const question = room.currentWordQuestion;
+  if (!question) {
+    return;
+  }
+  clearQuestionTimer(room);
+  if (room.reveal) {
+    room.phase = "word-reveal";
+    return;
+  }
+
+  const correctAnswer = normalizeWordGuess(question.answer);
+  const answerRows = [];
+  for (const playerId of room.activePlayerIds) {
+    const player = room.players.get(playerId);
+    if (!player) {
+      continue;
+    }
+    const submitted = room.wordAnswers.get(playerId) ?? null;
+    const isCorrect = submitted?.normalizedAnswer === correctAnswer;
+    const points = isCorrect ? 1 : 0;
+    if (points > 0) {
+      player.score += points;
+    }
+    answerRows.push({
+      playerId,
+      playerName: player.name,
+      answer: submitted?.answer ?? "No answer",
+      isCorrect,
+      points
+    });
+  }
+
+  room.reveal = {
+    answer: question.answer,
+    revealImage: question.revealImage,
+    answers: answerRows
+  };
+  room.questionEndsAt = null;
+  room.phase = "word-reveal";
+}
+
 function advanceAfterReveal(room) {
-  if (room.gameType === "logo-quiz") {
+  if (room.gameType === "logo-quiz" || room.gameType === "four-pics") {
     if (room.roundIndex < room.roundCount - 1) {
       room.roundIndex += 1;
-      startLogoQuestion(room);
+      if (room.gameType === "logo-quiz") {
+        startLogoQuestion(room);
+      } else {
+        startWordQuestion(room);
+      }
       return;
     }
 
+    clearQuestionTimer(room);
     room.phase = "finished";
     room.currentPrompt = null;
     room.currentLogoQuestion = null;
+    room.currentWordQuestion = null;
+    room.questionEndsAt = null;
     room.activePlayerIds = [];
     room.submissions = new Map();
     room.quizAnswers = new Map();
+    room.wordAnswers = new Map();
     room.answerOrder = [];
     room.answerIndex = 0;
     room.votes = new Map();
@@ -777,9 +1026,12 @@ function advanceAfterReveal(room) {
   room.phase = "finished";
   room.currentPrompt = null;
   room.currentLogoQuestion = null;
+  room.currentWordQuestion = null;
+  room.questionEndsAt = null;
   room.activePlayerIds = [];
   room.submissions = new Map();
   room.quizAnswers = new Map();
+  room.wordAnswers = new Map();
   room.answerOrder = [];
   room.answerIndex = 0;
   room.votes = new Map();
@@ -791,7 +1043,11 @@ io.on("connection", (socket) => {
     const gameType = normalizeGameType(payload.gameType);
     const requestedRounds = Number(payload.roundCount);
     const roundCount =
-      gameType === "logo-quiz" ? logoQuestions.length : clamp(Number.isFinite(requestedRounds) ? requestedRounds : 5, 1, 10);
+      gameType === "logo-quiz"
+        ? logoQuestions.length
+        : gameType === "four-pics"
+          ? Math.min(FOUR_PICS_ROUND_COUNT, fourPicsQuestions.length)
+          : clamp(Number.isFinite(requestedRounds) ? requestedRounds : 5, 1, 10);
     const room = createRoom(roundCount, gameType);
     room.hostSocketId = socket.id;
     rooms.set(room.code, room);
@@ -883,7 +1139,7 @@ io.on("connection", (socket) => {
       return;
     }
     const connectedPlayers = [...room.players.values()].filter((player) => player.connected);
-    const minimumPlayers = room.gameType === "logo-quiz" ? 1 : 2;
+    const minimumPlayers = room.gameType === "guess-who" ? 2 : 1;
     if (connectedPlayers.length < minimumPlayers) {
       replyError(callback, `Need at least ${minimumPlayers} connected ${minimumPlayers === 1 ? "player" : "players"}.`);
       return;
@@ -891,6 +1147,7 @@ io.on("connection", (socket) => {
 
     room.promptQueue = room.gameType === "guess-who" ? pickPrompts(room.roundCount) : [];
     room.logoQuestionQueue = room.gameType === "logo-quiz" ? pickLogoQuestions(room.roundCount) : [];
+    room.wordQuestionQueue = room.gameType === "four-pics" ? pickFourPicsQuestions(room.roundCount) : [];
     room.roundIndex = 0;
     for (const player of room.players.values()) {
       player.score = 0;
@@ -907,6 +1164,12 @@ io.on("connection", (socket) => {
     }
     if (room.phase === "quiz") {
       revealLogoQuestion(room);
+      reply(callback, { ok: true });
+      emitRoom(room);
+      return;
+    }
+    if (room.phase === "word") {
+      revealWordQuestion(room);
       reply(callback, { ok: true });
       emitRoom(room);
       return;
@@ -929,6 +1192,10 @@ io.on("connection", (socket) => {
       revealLogoQuestion(room);
     } else if (room.phase === "quiz-reveal") {
       advanceAfterReveal(room);
+    } else if (room.phase === "word") {
+      revealWordQuestion(room);
+    } else if (room.phase === "word-reveal") {
+      advanceAfterReveal(room);
     } else if (room.phase === "guess") {
       revealCurrentAnswer(room);
     } else if (room.phase === "reveal") {
@@ -946,13 +1213,17 @@ io.on("connection", (socket) => {
     if (!room) {
       return;
     }
+    clearQuestionTimer(room);
     room.phase = "lobby";
     room.roundIndex = 0;
     room.currentPrompt = null;
     room.currentLogoQuestion = null;
+    room.currentWordQuestion = null;
+    room.questionEndsAt = null;
     room.activePlayerIds = [];
     room.submissions = new Map();
     room.quizAnswers = new Map();
+    room.wordAnswers = new Map();
     room.answerOrder = [];
     room.answerIndex = 0;
     room.votes = new Map();
@@ -960,6 +1231,46 @@ io.on("connection", (socket) => {
     for (const player of room.players.values()) {
       player.score = 0;
     }
+    reply(callback, { ok: true });
+    emitRoom(room);
+  });
+
+  socket.on("player:word-answer", (payload = {}, callback) => {
+    const { room, player } = getPlayerRoom(socket, callback);
+    if (!room || !player) {
+      return;
+    }
+    if (room.phase !== "word" || !room.activePlayerIds.includes(player.id)) {
+      replyError(callback, "Answers are closed.");
+      return;
+    }
+    if (room.questionEndsAt && Date.now() > room.questionEndsAt) {
+      revealWordQuestion(room);
+      replyError(callback, "Time is up.");
+      emitRoom(room);
+      return;
+    }
+
+    const answer = sanitizeAnswer(payload.answer);
+    const normalizedAnswer = normalizeWordGuess(answer);
+    if (normalizedAnswer.length < 1) {
+      replyError(callback, "Type a guess first.");
+      return;
+    }
+
+    room.wordAnswers.set(player.id, {
+      playerId: player.id,
+      playerName: player.name,
+      answer: answer.toUpperCase(),
+      normalizedAnswer,
+      submittedAt: Date.now()
+    });
+
+    const progress = getWordProgress(room);
+    if (progress.total > 0 && progress.done >= progress.total) {
+      revealWordQuestion(room);
+    }
+
     reply(callback, { ok: true });
     emitRoom(room);
   });
@@ -1077,6 +1388,7 @@ setInterval(() => {
   for (const [code, room] of rooms.entries()) {
     const hasLiveSockets = Boolean(io.sockets.adapter.rooms.get(code)?.size);
     if (!hasLiveSockets && room.updatedAt < cutoff) {
+      clearQuestionTimer(room);
       rooms.delete(code);
     }
   }

@@ -5,6 +5,7 @@ import {
   ChevronRight,
   Clipboard,
   Crown,
+  Images,
   Loader2,
   LogIn,
   Play,
@@ -14,14 +15,15 @@ import {
   Sparkles,
   Trophy,
   XCircle,
+  Timer,
   Users
 } from "lucide-react";
 import { io } from "socket.io-client";
 import type { Socket } from "socket.io-client";
 
-type Phase = "lobby" | "submit" | "guess" | "reveal" | "quiz" | "quiz-reveal" | "finished";
+type Phase = "lobby" | "submit" | "guess" | "reveal" | "quiz" | "quiz-reveal" | "word" | "word-reveal" | "finished";
 type Mode = "host" | "join";
-type GameType = "guess-who" | "logo-quiz";
+type GameType = "guess-who" | "logo-quiz" | "four-pics";
 
 type Player = {
   id: string;
@@ -79,6 +81,25 @@ type QuizReveal = {
   }>;
 };
 
+type WordQuestion = {
+  id: string;
+  prompt: string;
+  image: string;
+  answerLength: number;
+};
+
+type WordReveal = {
+  answer: string;
+  revealImage: string;
+  answers: Array<{
+    playerId: string;
+    playerName: string;
+    answer: string;
+    isCorrect: boolean;
+    points: number;
+  }>;
+};
+
 type RoomState = {
   roomCode: string;
   gameType: GameType;
@@ -93,15 +114,22 @@ type RoomState = {
   submissionProgress: { done: number; total: number };
   voteProgress: { done: number; total: number };
   quizProgress: { done: number; total: number };
+  wordProgress: { done: number; total: number };
   logoQuestion: LogoQuestion | null;
+  wordQuestion: WordQuestion | null;
   currentAnswer: { index: number; total: number; text: string; isMine: boolean } | null;
   reveal: Reveal | null;
   quizReveal: QuizReveal | null;
+  wordReveal: WordReveal | null;
   mySubmitted: boolean;
   myVote: string | null;
   myQuizAnswer: string | null;
+  myWordAnswer: string | null;
   eligibleToVote: boolean;
   eligibleToAnswer: boolean;
+  eligibleToWordAnswer: boolean;
+  questionEndsAt: number | null;
+  questionDurationMs: number | null;
   serverTime: number;
 };
 
@@ -129,6 +157,11 @@ const gameChoices: Array<{
   title: string;
   description: string;
 }> = [
+  {
+    type: "four-pics",
+    title: "4 Pics 1 Word",
+    description: "10 timed picture puzzles"
+  },
   {
     type: "guess-who",
     title: "Guess Who Said It",
@@ -195,6 +228,28 @@ function sortByScore(players: Player[]) {
   });
 }
 
+function useCountdownSeconds(endsAt: number | null, durationMs: number | null) {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!endsAt) {
+      return;
+    }
+
+    setNow(Date.now());
+    const intervalId = window.setInterval(() => setNow(Date.now()), 250);
+    return () => window.clearInterval(intervalId);
+  }, [endsAt]);
+
+  const remainingMs = endsAt ? Math.max(0, endsAt - now) : 0;
+  const totalMs = durationMs ?? 20_000;
+
+  return {
+    remainingSeconds: Math.ceil(remainingMs / 1000),
+    progress: Math.max(0, Math.min(100, (remainingMs / totalMs) * 100))
+  };
+}
+
 function App() {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [connected, setConnected] = useState(false);
@@ -202,7 +257,7 @@ function App() {
   const [mode, setMode] = useState<Mode>(getInitialRoomCode() ? "join" : "host");
   const [joinCode, setJoinCode] = useState(getInitialRoomCode());
   const [name, setName] = useState(localStorage.getItem("gwsi:name") ?? "");
-  const [gameType, setGameType] = useState<GameType>("logo-quiz");
+  const [gameType, setGameType] = useState<GameType>("four-pics");
   const [roundCount, setRoundCount] = useState(5);
   const [answer, setAnswer] = useState("");
   const [notice, setNotice] = useState("");
@@ -279,7 +334,7 @@ function App() {
     }
     setBusyAction("host:create");
     setNotice("");
-    socket.emit("host:create", { roundCount: gameType === "logo-quiz" ? 10 : roundCount, gameType }, (response: Ack) => {
+    socket.emit("host:create", { roundCount: gameType === "guess-who" ? roundCount : 10, gameType }, (response: Ack) => {
       setBusyAction("");
       if (!response.ok || !response.roomCode || !response.hostToken) {
         setNotice(response.error ?? "Could not create a room.");
@@ -345,6 +400,14 @@ function App() {
     }
   }
 
+  async function submitWordAnswer(event: FormEvent) {
+    event.preventDefault();
+    const ok = await emitAction("player:word-answer", { answer });
+    if (ok) {
+      setAnswer("");
+    }
+  }
+
   if (!roomState) {
     return (
       <main className="app-shell">
@@ -355,7 +418,7 @@ function App() {
                 <Sparkles size={22} />
               </span>
               <div>
-                <p className="eyebrow">Guess Who Said It</p>
+                <p className="eyebrow">Live icebreaker</p>
                 <h1>CDL Ice Breakers</h1>
               </div>
             </div>
@@ -417,8 +480,8 @@ function App() {
                   </>
                 ) : (
                   <div className="locked-rounds">
-                    <BadgeCheck size={18} />
-                    10 questions
+                    {gameType === "four-pics" ? <Timer size={18} /> : <BadgeCheck size={18} />}
+                    {gameType === "four-pics" ? "10 questions | 20 sec each" : "10 questions"}
                   </div>
                 )}
                 <button
@@ -428,7 +491,7 @@ function App() {
                   disabled={!connected || busyAction === "host:create"}
                 >
                   {busyAction === "host:create" ? <Loader2 className="spin" size={20} /> : <Play size={20} />}
-                  Create {gameType === "logo-quiz" ? "quiz" : "room"}
+                  Create {gameType === "four-pics" ? "word game" : gameType === "logo-quiz" ? "quiz" : "room"}
                 </button>
               </div>
             ) : (
@@ -532,11 +595,24 @@ function App() {
               onReveal={() => emitAction("host:reveal")}
             />
           )}
+          {roomState.phase === "word" && (
+            <FourPicsView
+              state={roomState}
+              answer={answer}
+              busyAction={busyAction}
+              onAnswerChange={setAnswer}
+              onSubmit={submitWordAnswer}
+              onReveal={() => emitAction("host:reveal")}
+            />
+          )}
           {roomState.phase === "reveal" && (
             <RevealView state={roomState} busyAction={busyAction} onNext={() => emitAction("host:next")} />
           )}
           {roomState.phase === "quiz-reveal" && (
             <LogoQuizRevealView state={roomState} busyAction={busyAction} onNext={() => emitAction("host:next")} />
+          )}
+          {roomState.phase === "word-reveal" && (
+            <FourPicsRevealView state={roomState} busyAction={busyAction} onNext={() => emitAction("host:next")} />
           )}
           {roomState.phase === "finished" && (
             <FinishedView state={roomState} busyAction={busyAction} onReset={() => emitAction("host:reset")} />
@@ -561,6 +637,31 @@ function App() {
 }
 
 function StartVisualBoard({ gameType }: { gameType: GameType }) {
+  if (gameType === "four-pics") {
+    return (
+      <div className="visual-board pics-visual" aria-hidden="true">
+        <div className="visual-header">
+          <span />
+          <span />
+          <span />
+        </div>
+        <div className="pics-preview-frame">
+          <img src="/4pics1word/5.jpg" alt="" />
+        </div>
+        <div className="word-preview-badges">
+          <span>G</span>
+          <span>I</span>
+          <span>F</span>
+          <span>T</span>
+        </div>
+        <div className="mini-score">
+          <Timer size={28} />
+          <strong>20s</strong>
+        </div>
+      </div>
+    );
+  }
+
   if (gameType === "logo-quiz") {
     return (
       <div className="visual-board logo-visual" aria-hidden="true">
@@ -623,7 +724,7 @@ function ConnectionPill({ connected }: { connected: boolean }) {
 
 function RoundMeter({ state }: { state: RoomState }) {
   const currentRound = state.phase === "lobby" || state.phase === "finished" ? 0 : state.roundIndex + 1;
-  const unit = state.gameType === "logo-quiz" ? "Question" : "Round";
+  const unit = state.gameType === "guess-who" ? "Round" : "Question";
   return (
     <div className="round-meter">
       <span>{state.phase === "finished" ? "Final scores" : `${unit} ${currentRound || 1} of ${state.roundCount}`}</span>
@@ -646,16 +747,21 @@ function LobbyView({
 }) {
   const connectedPlayers = state.players.filter((player) => player.connected).length;
   const isLogoQuiz = state.gameType === "logo-quiz";
-  const minimumPlayers = isLogoQuiz ? 1 : 2;
+  const isFourPics = state.gameType === "four-pics";
+  const minimumPlayers = state.gameType === "guess-who" ? 2 : 1;
   return (
     <section className="phase-view">
       <div className="phase-kicker">
-        {isLogoQuiz ? <Shapes size={18} /> : <Users size={18} />}
+        {isFourPics ? <Images size={18} /> : isLogoQuiz ? <Shapes size={18} /> : <Users size={18} />}
         {connectedPlayers} joined
       </div>
       <h2>Room code {state.roomCode}</h2>
       <p className="phase-copy">
-        {isLogoQuiz ? "Start the 10-question logo challenge when players are ready." : "Wait for the names to fill in, then start the first prompt."}
+        {isFourPics
+          ? "Start the 10-question picture-word challenge when players are ready."
+          : isLogoQuiz
+            ? "Start the 10-question logo challenge when players are ready."
+            : "Wait for the names to fill in, then start the first prompt."}
       </p>
       {state.isHost ? (
         <button
@@ -665,7 +771,7 @@ function LobbyView({
           disabled={connectedPlayers < minimumPlayers || busyAction === "host:start"}
         >
           {busyAction === "host:start" ? <Loader2 className="spin" size={20} /> : <Play size={20} />}
-          Start {isLogoQuiz ? "quiz" : "game"}
+          Start {state.gameType === "guess-who" ? "game" : "quiz"}
         </button>
       ) : (
         <div className="waiting-chip">
@@ -860,6 +966,191 @@ function LogoQuizView({
   );
 }
 
+function FourPicsView({
+  state,
+  answer,
+  busyAction,
+  onAnswerChange,
+  onSubmit,
+  onReveal
+}: {
+  state: RoomState;
+  answer: string;
+  busyAction: string;
+  onAnswerChange: (value: string) => void;
+  onSubmit: (event: FormEvent) => void;
+  onReveal: () => void;
+}) {
+  const question = state.wordQuestion;
+  const timer = useCountdownSeconds(state.questionEndsAt, state.questionDurationMs);
+
+  if (!question) {
+    return (
+      <section className="phase-view">
+        <div className="waiting-chip">
+          <Loader2 className="spin" size={18} />
+          Loading puzzle
+        </div>
+      </section>
+    );
+  }
+
+  const answered = Boolean(state.myWordAnswer);
+
+  return (
+    <section className="phase-view word-view">
+      <div className="word-header">
+        <div>
+          <div className="phase-kicker">
+            <Images size={18} />
+            4 Pics 1 Word
+          </div>
+          <h2>{question.prompt}</h2>
+        </div>
+        <QuestionTimer remainingSeconds={timer.remainingSeconds} progress={timer.progress} />
+      </div>
+
+      <div className="word-grid">
+        <div className="word-image-frame">
+          <img src={question.image} alt="4 Pics 1 Word puzzle" />
+        </div>
+        <div className="word-play-panel">
+          <ProgressText done={state.wordProgress.done} total={state.wordProgress.total} label="answered" />
+          <AnswerSlots length={question.answerLength} />
+          {state.isHost ? (
+            <button
+              className="secondary-action fit"
+              type="button"
+              onClick={onReveal}
+              disabled={busyAction === "host:reveal"}
+            >
+              {busyAction === "host:reveal" ? <Loader2 className="spin" size={20} /> : <ChevronRight size={20} />}
+              Reveal answer
+            </button>
+          ) : answered ? (
+            <div className="success-panel">
+              <CheckCircle2 size={26} />
+              Guess locked in: {state.myWordAnswer}
+            </div>
+          ) : (
+            <form className="word-answer-form" onSubmit={onSubmit}>
+              <label className="field-label" htmlFor="word-answer">
+                Your guess
+              </label>
+              <input
+                id="word-answer"
+                value={answer}
+                onChange={(event) => onAnswerChange(event.target.value.toUpperCase())}
+                maxLength={Math.max(question.answerLength + 4, 12)}
+                placeholder={`${question.answerLength} letters`}
+                autoComplete="off"
+                autoFocus
+              />
+              <button
+                className="primary-action fit"
+                type="submit"
+                disabled={answer.trim().length < 1 || busyAction === "player:word-answer" || timer.remainingSeconds <= 0}
+              >
+                {busyAction === "player:word-answer" ? <Loader2 className="spin" size={20} /> : <Send size={20} />}
+                Submit
+              </button>
+            </form>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function FourPicsRevealView({
+  state,
+  busyAction,
+  onNext
+}: {
+  state: RoomState;
+  busyAction: string;
+  onNext: () => void;
+}) {
+  const question = state.wordQuestion;
+  const reveal = state.wordReveal;
+  const isLastQuestion = state.roundIndex + 1 >= state.roundCount;
+  const nextLabel = isLastQuestion ? "Finish" : "Next question";
+
+  return (
+    <section className="phase-view word-view">
+      <div className="word-header">
+        <div>
+          <div className="phase-kicker">
+            <BadgeCheck size={18} />
+            Answer reveal
+          </div>
+          <h2>{reveal?.answer ?? "Solved"}</h2>
+        </div>
+        <div className="answer-points">
+          <strong>+1</strong>
+          <span>correct</span>
+        </div>
+      </div>
+
+      <div className="word-grid">
+        <div className="word-image-frame revealed">
+          <img src={reveal?.revealImage ?? question?.image ?? ""} alt="Solved 4 Pics 1 Word puzzle" />
+        </div>
+        <div className="word-play-panel">
+          <div className="reveal-banner quiz-correct-banner">
+            <CheckCircle2 size={22} />
+            <span>{reveal?.answer ?? "Correct answer"}</span>
+          </div>
+          <div className="vote-list">
+            {reveal?.answers.map((answerRow) => (
+              <div className={answerRow.isCorrect ? "vote-row correct" : "vote-row"} key={answerRow.playerId}>
+                <span>{answerRow.playerName}</span>
+                {answerRow.isCorrect ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
+                <strong>{answerRow.answer}</strong>
+                <small>{answerRow.points ? `+${answerRow.points}` : "+0"}</small>
+              </div>
+            ))}
+          </div>
+          {state.isHost ? (
+            <button className="primary-action fit" type="button" onClick={onNext} disabled={busyAction === "host:next"}>
+              {busyAction === "host:next" ? <Loader2 className="spin" size={20} /> : <ChevronRight size={20} />}
+              {nextLabel}
+            </button>
+          ) : (
+            <div className="waiting-chip">
+              <Loader2 className="spin" size={18} />
+              Waiting for host
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function QuestionTimer({ remainingSeconds, progress }: { remainingSeconds: number; progress: number }) {
+  return (
+    <div className={`question-timer ${remainingSeconds <= 5 ? "urgent" : ""}`}>
+      <Timer size={20} />
+      <strong>{remainingSeconds}s</strong>
+      <span>left</span>
+      <div className="timer-track">
+        <span style={{ width: `${progress}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function AnswerSlots({ length }: { length: number }) {
+  return (
+    <div className="answer-slots" aria-label={`${length} letter answer`}>
+      {Array.from({ length }, (_, index) => (
+        <span key={index} />
+      ))}
+    </div>
+  );
+}
+
 function LogoQuizRevealView({
   state,
   busyAction,
@@ -989,13 +1280,14 @@ function FinishedView({
 }) {
   const winners = sortByScore(state.players).slice(0, 3);
   const isLogoQuiz = state.gameType === "logo-quiz";
+  const isFourPics = state.gameType === "four-pics";
   return (
     <section className="phase-view">
       <div className="phase-kicker">
-        {isLogoQuiz ? <Shapes size={18} /> : <Trophy size={18} />}
+        {isFourPics ? <Images size={18} /> : isLogoQuiz ? <Shapes size={18} /> : <Trophy size={18} />}
         Final
       </div>
-      <h2>{isLogoQuiz ? "Logo champs" : "Top guesses"}</h2>
+      <h2>{isFourPics ? "Word champs" : isLogoQuiz ? "Logo champs" : "Top guesses"}</h2>
       <div className="podium">
         {winners.map((player, index) => (
           <div className={`podium-place place-${index + 1}`} key={player.id}>
@@ -1250,13 +1542,14 @@ function ProgressText({ done, total, label }: { done: number; total: number; lab
 }
 
 function PlayerRow({ player, rank }: { player: Player; rank: number }) {
+  const status = !player.connected ? "Offline" : player.isActive && player.hasSubmitted ? "Locked in" : "Ready";
   return (
     <div className={`player-row ${player.connected ? "" : "offline"}`}>
       <span className="rank">{rank}</span>
       <Avatar player={player} />
       <div className="player-copy">
         <strong>{player.name}</strong>
-        <span>{player.connected ? "Ready" : "Offline"}</span>
+        <span>{status}</span>
       </div>
       <span className="score">{player.score}</span>
     </div>
