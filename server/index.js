@@ -365,25 +365,11 @@ const fourPicsQuestions = [
     revealImage: "/4pics1word/12.jpg"
   },
   {
-    id: "task",
-    prompt: "What word connects these four pictures?",
-    answer: "TASK",
-    image: "/4pics1word/14.jpg",
-    revealImage: "/4pics1word/15.jpg"
-  },
-  {
     id: "light",
     prompt: "What word connects these four pictures?",
     answer: "LIGHT",
     image: "/4pics1word/16.jpg",
     revealImage: "/4pics1word/17.jpg"
-  },
-  {
-    id: "catch",
-    prompt: "What word connects these four pictures?",
-    answer: "CATCH",
-    image: "/4pics1word/18.jpg",
-    revealImage: "/4pics1word/19.jpg"
   },
   {
     id: "crime",
@@ -400,13 +386,6 @@ const fourPicsQuestions = [
     revealImage: "/4pics1word/24.jpg"
   },
   {
-    id: "active",
-    prompt: "What word connects these four pictures?",
-    answer: "ACTIVE",
-    image: "/4pics1word/25.jpg",
-    revealImage: "/4pics1word/26.jpg"
-  },
-  {
     id: "launch",
     prompt: "What word connects these four pictures?",
     answer: "LAUNCH",
@@ -419,6 +398,27 @@ const fourPicsQuestions = [
     answer: "EXPAND",
     image: "/4pics1word/29.jpg",
     revealImage: "/4pics1word/30.jpg"
+  },
+  {
+    id: "focus",
+    prompt: "What word connects these four pictures?",
+    answer: "FOCUS",
+    image: "/4pics1word/32.jpg",
+    revealImage: "/4pics1word/33.jpg"
+  },
+  {
+    id: "share",
+    prompt: "What word connects these four pictures?",
+    answer: "SHARE",
+    image: "/4pics1word/34.jpg",
+    revealImage: "/4pics1word/35.jpg"
+  },
+  {
+    id: "build",
+    prompt: "What word connects these four pictures?",
+    answer: "BUILD",
+    image: "/4pics1word/36.jpg",
+    revealImage: "/4pics1word/37.jpg"
   }
 ];
 
