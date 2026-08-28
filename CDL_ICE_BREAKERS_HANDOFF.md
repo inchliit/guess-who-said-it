@@ -621,7 +621,9 @@ Expected status:
 HTTP 200
 ```
 
-Check removed assets after deploy:
+For removed image paths, do not rely on status code alone. The Express app serves the React single-page app through a catch-all route, so a missing static path can return `200` with HTML instead of an image. Some old image paths may also appear temporarily if an upstream cache still has the old file.
+
+Better checks:
 
 ```bash
 curl -I https://guess-who-said-it.onrender.com/4pics1word/14.jpg
@@ -629,19 +631,48 @@ curl -I https://guess-who-said-it.onrender.com/4pics1word/18.jpg
 curl -I https://guess-who-said-it.onrender.com/4pics1word/25.jpg
 ```
 
-Expected status after a clean Render deploy:
+Interpretation:
 
 ```text
-HTTP 404
+image/jpeg means an old cached file or old deployment is being served for that URL
+text/html means the file is missing and the SPA fallback responded
 ```
 
-If removed assets still return `200`, Render may still be serving the old deployment. Wait for the deploy to finish and retest.
+The strongest Render verification is the live Socket.IO game state. After export commit `438be16`, a live smoke test created multiple 4 Pics rooms on Render and observed this result:
 
-## Known Commit History Before This Export
+```json
+{
+  "ok": true,
+  "rooms": [
+    {
+      "roomCode": "ZTVS",
+      "ids": ["expand", "light", "focus", "share", "crime", "gift", "event", "launch", "summer", "think"],
+      "duration": 45000
+    },
+    {
+      "roomCode": "QESV",
+      "ids": ["event", "crime", "rich", "think", "light", "summer", "focus", "launch", "expand", "share"],
+      "duration": 45000
+    },
+    {
+      "roomCode": "3DCN",
+      "ids": ["event", "summer", "think", "build", "expand", "gift", "share", "crime", "rich", "light"],
+      "duration": 45000
+    }
+  ],
+  "seen": ["build", "crime", "event", "expand", "focus", "gift", "launch", "light", "rich", "share", "summer", "think"],
+  "replacementsSeen": ["build", "focus", "share"],
+  "removedSeen": [],
+  "durations": [45000]
+}
+```
 
-Recent commits before this handoff file was created:
+## Known Commit History Around This Export
+
+Recent commits around this handoff:
 
 ```text
+438be16 Update 4 Pics pool and add handoff
 90a664c Set 4 Pics timer to 45 seconds
 6541d6b Add 4 Pics 1 Word icebreaker mode
 6c794ce Add logo quiz game mode
@@ -649,13 +680,15 @@ Recent commits before this handoff file was created:
 ffff0e8 Add Guess Who Said It icebreaker game
 ```
 
-The handoff capture `head` in the frontmatter points to `90a664c...`, which was the current `HEAD` before committing the final export changes. The export commit should contain:
+The handoff capture `head` in the frontmatter points to `90a664c...`, which was the current `HEAD` before committing the export changes. Functional export commit `438be16` contains:
 
 - This handoff file.
 - Removal of `task`, `catch`, and `active`.
 - Addition of `focus`, `share`, and `build`.
 - Addition of replacement image pairs `32.jpg` through `37.jpg`.
 - Deletion of old image pairs `14.jpg`, `15.jpg`, `18.jpg`, `19.jpg`, `25.jpg`, and `26.jpg`.
+
+If a later commit exists after `438be16`, inspect it normally. It may be a documentation-only correction to this handoff.
 
 ## Security And Ownership Notes
 
